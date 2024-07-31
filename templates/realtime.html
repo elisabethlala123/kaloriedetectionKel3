@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 50px;">
+    <div class="card-header text-center">
+        <h1>Deteksi Makanan Real-Time</h1>
+    </div>
+    <div class="card-body text-center">
+        <img src="{{ url_for('video_feed') }}" alt="Video Feed">
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 50px;">
+    <div class="card-header text-center">
+        <h1>Unggah Gambar untuk Deteksi</h1>
+    </div>
+    <div class="card-body">
+        <p class="text-center">Silakan unggah gambar makanan Indonesia yang ingin Anda deteksi.</p>
+
+        <div class="upload-container text-center" id="upload-container">
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <input type="file" name="file" class="form-control-file" id="file-input" required style="display: none;">
+                    <label for="file-input" id="file-label">Klik untuk mengunggah gambar</label>
+                </div>
+                <p id="file-name" style="font-weight: bold;"></p>
+            </form>
+        </div>
+        <div class="text-center mt-3">
+            <button type="button" class="btn btn-primary" id="upload-button">Unggah</button>
+            <button type="button" class="btn btn-secondary" id="reset-button">Reset</button>
+        </div>
+
+        <div id="result-container" class="text-center mt-4"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+    $(document).ready(function () {
+        const $fileInput = $('#file-input');
+        const $uploadContainer = $('#upload-container');
+        const $uploadButton = $('#upload-button');
+        const $resetButton = $('#reset-button');
+        const $fileName = $('#file-name');
+        const $resultContainer = $('#result-container');
+
+        $uploadContainer.on('click', function (event) {
+            $fileInput.click();
+        });
+
+        $fileInput.on('change', function () {
+            updateFileName();
+        });
+
+        $uploadButton.on('click', function () {
+            if ($fileInput[0].files.length > 0) {
+                const formData = new FormData($('#upload-form')[0]);
+
+                Swal.fire({
+                    title: 'Mengunggah...',
+                    text: 'Tunggu sebentar',
+                    didOpen: function () {
+                        Swal.showLoading();
+                        $.ajax({
+                            url: '/predict',
+                            type: 'POST',
+                            data: formData,
+                            contentType: false,
+                            processData: false,
+                            success: function (response) {
+                                Swal.close();
+                                displayResult(response);
+                            },
+                            error: function (xhr, status, error) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Upload gagal',
+                                    text: 'Silakan coba lagi.',
+                                });
+                            }
+                        });
+                    }
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tidak ada file',
+                    text: 'Silakan pilih file terlebih dahulu.',
+                });
+            }
+        });
+
+        $resetButton.on('click', function () {
+            $fileInput.val('');
+            $fileName.text('');
+            $resultContainer.html('');
+        });
+
+        function updateFileName() {
+            if ($fileInput[0].files.length > 0) {
+                $fileName.text(`File: ${$fileInput[0].files[0].name}`);
+            } else {
+                $fileName.text('');
+            }
+        }
+
+        function displayResult(response) {
+            const annotatedImgStr = response.annotated_img_str;
+            const results = response.results;
+            const totalCalories = response.total_calories;
+            const detectedItems = response.detected_items;
+
+            let resultHTML = `
+                <h1 class="text-center">Hasil Deteksi Makanan</h1>
+                <p class="text-center">Berikut adalah hasil deteksi dari gambar yang Anda unggah:</p>
+                <div class="text-center">
+                    <img src="data:image/jpeg;base64,${annotatedImgStr}" alt="Gambar Teranotasi" class="img-fluid" style="max-width: 100%;">
+                </div>
+                <table class="table table-striped mt-4">
+                    <thead>
+                        <tr>
+                            <th scope="col">Gambar</th>
+                            <th scope="col">Jenis Makanan</th>
+                            <th scope="col">Kalori</th>
+                            <th scope="col">Persentase Kalori</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            results.forEach(function (result, index) {
+                const item = detectedItems[index];
+                resultHTML += `
+                    <tr>
+                        <td>
+                            <img src="data:image/jpeg;base64,${result.img_str}" alt="${result.class_name}" class="img-fluid" style="max-width: 150px;">
+                        </td>
+                        <td>${result.class_name}</td>
+                        <td>${item.calories} kkal</td>
+                        <td>${item.percentage.toFixed(2)}%</td>
+                    </tr>`;
+            });
+
+            resultHTML += `
+                    </tbody>
+                </table>
+                <p class="text-center"><strong>Total Kalori: ${totalCalories} kkal</strong></p>
+                <a href="/" class="btn btn-primary">Kembali</a>`;
+
+            $resultContainer.html(resultHTML);
+        }
+    });
+</script>
+{% endblock %}
